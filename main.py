@@ -1,27 +1,35 @@
-# Imports
 import sqlite3
-# Establish connection to database
-conn = sqlite3.connect('python.db')
-c = conn.cursor()
-# Create global variable name
-name = ""
 
-def create_table():
-  global name # Retrieve global variable name
-  c.execute('CREATE TABLE IF NOT EXISTS RecordONE (Number REAL, Name TEXT)') # DB execution
-  name = input("What is your name?") # Input to global variable name
+conn = sqlite3.connect('emaildb.sqlite')
+cur = conn.cursor()
 
-def data_entry():
-  number = "1234"
-  c.execute("INSERT INTO RecordONE (Number, Name) VALUES(?, ?)", (number, name)) # Execute sql
+cur.execute('DROP TABLE IF EXISTS Counts')
 
-# Call functions
-create_table()
-data_entry()
+cur.execute('''
+CREATE TABLE Counts (email TEXT, count INTEGER)''')
 
-# Save changes to DB
-conn.commit()
+fname = input('Enter file name: ')
+if (len(fname) < 1): fname = 'mbox-short.txt'
+fh = open(fname)
+for line in fh:
+    if not line.startswith('From: '): continue
+    pieces = line.split()
+    email = pieces[1]
+    cur.execute('SELECT count FROM Counts WHERE email = ? ', (email,))
+    row = cur.fetchone()
+    if row is None:
+        cur.execute('''INSERT INTO Counts (email, count)
+                VALUES (?, 1)''', (email,))
+    else:
+        cur.execute('UPDATE Counts SET count = count + 1 WHERE email = ?',
+                    (email,))
+    conn.commit()
 
-# Close connection
-c.close()
-conn.close()
+# https://www.sqlite.org/lang_select.html
+print("do select")
+sqlstr = 'SELECT email, count FROM Counts ORDER BY count DESC LIMIT 10'
+
+for row in cur.execute(sqlstr):
+    print(str(row[0]), row[1])
+
+cur.close()
